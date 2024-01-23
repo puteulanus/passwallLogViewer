@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Status</title>
+<script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.min.js"></script>
+<style>
+  /* Basic reset */
+  body, h1, table, tr, th, td, select, button, input {
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  }
+
+  /* Container styling */
+  #app {
+    padding: 20px;
+    background-color: #f2f2f2;
+  }
+
+  /* Table styling */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+  }
+
+  th, td {
+    text-align: left;
+    padding: 8px;
+    border-bottom: 1px solid #ddd;
+  }
+
+  th {
+    background-color: #007bff;
+    color: white;
+  }
+
+  tr:hover {
+    background-color: #f5f5f5;
+  }
+
+  /* Filter container styling */
+  .filter-container {
+    margin-bottom: 20px;
+    padding: 10px;
+    background-color: white;
+    border-radius: 5px;
+  }
+
+  .filter-container > * {
+    margin-right: 10px;
+    margin-bottom: 10px;
+  }
+
+  select, input {
+    padding: 5px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+  }
+
+  button {
+    padding: 5px 15px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+
+  button:hover {
+    opacity: 0.8;
+  }
+
+  /* Blocked domains container */
+  .blocked-domains {
+    margin-bottom: 10px;
+  }
+
+  .blocked-domains span {
+    display: inline-block;
+    background-color: #dc3545;
+    color: white;
+    padding: 5px 10px;
+    margin-right: 5px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="filter-container">
+    <input type="text" placeholder="Filter by domain..." v-model="filters.domain">
+    <select v-model="filters.node">
+      <option value="">All Nodes</option>
+      <option v-for="node in nodes" :value="node">{{ node }}</option>
+    </select>
+    <select v-model="filters.clientIP">
+      <option value="">All Client IPs</option>
+      <option v-for="ip in clientIPs" :value="ip">{{ ip }}</option>
+    </select>
+    <div class="blocked-domains">
+      <span v-for="(blockedDomain, index) in blockedDomains" :key="index">
+        {{ blockedDomain }} <button @click="removeBlockedDomain(index)">x</button>
+      </span>
+      <button @click="addDomainToBlockList">Block Domain</button>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Domain</th>
+        <th>Node</th>
+        <th>Client IP</th>
+        <th>Remote IP</th>
+        <th>Alive Time</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr v-for="connection in filteredConnections" :key="connection.connection_id">
+        <td>{{ connection.domain }}</td>
+        <td>{{ connection.detour }}</td>
+        <td>{{ connection.client_ip }}</td>
+        <td>{{ connection.ip }}</td>
+        <td>{{ connection.alive_time }}</td>
+        <td>{{ connection.ended ? 'Ended' : 'Active' }}</td>
+        <td>
+          <button @click="blockDomain(connection.domain)">Block</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+  new Vue({
+    el: '#app',
+    data: {
+      connections: [],
+      filters: {
+        domain: '',
+        node: '',
+        clientIP: '',
+      },
+      blockedDomains: [],
+      nodes: [], // to preserve node options
+      clientIPs: [], // to preserve client IP options
+    },
+    computed: {
+      filteredConnections() {
+        return this.connections.filter(c => {
+          return (!this.filters.domain || (c.domain && c.domain.includes(this.filters.domain)))
+          && (!this.filters.node || c.detour === this.filters.node)
+          && (!this.filters.clientIP || c.client_ip === this.filters.clientIP)
+          && !this.blockedDomains.includes(c.domain);
+        });
+      }
+    },
+    methods: {
+      blockDomain(domain) {
+        if (!this.blockedDomains.includes(domain)) {
+          this.blockedDomains.push(domain);
+        }
+      },
+      removeBlockedDomain(index) {
+        this.blockedDomains.splice(index, 1);
+      },
+      addDomainToBlockList() {
+        let domainToBlock = prompt('Enter the domain to block:');
+        if (domainToBlock) {
+          this.blockDomain(domainToBlock);
+        }
+      },
+      fetchData() {
+        fetch('/connections')
+        .then(response => response.json())
+        .then(data => {
+          this.connections = data;
+          data.forEach(connection => {
+            if (connection.detour && !this.nodes.includes(connection.detour)) {
+              this.nodes.push(connection.detour);
+            }
+            if (connection.client_ip && !this.clientIPs.includes(connection.client_ip)) {
+              this.clientIPs.push(connection.client_ip);
+            }
+          });
+        })
+        .catch(error => console.error('Error fetching data:', error));
+      }
+    },
+    mounted() {
+      this.fetchData();
+      setInterval(this.fetchData, 1000); // Fetch data every second
+    }
+  });
+</script>
+
+</body>
+</html>
