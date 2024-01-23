@@ -45,3 +45,10 @@ python passwallLogViewer.py
 ```
 
 之后，你可以在浏览器中访问 `http://[你的路由器IP]:5032` 来查看 passwall 的连接情况。
+
+## 注意
+
+Info 等级的日志文件大小增加很快，可以设置 cron 定时清空 `/var/etc/passwall/TCP.log` 文件
+```
+0 * * * * echo "" > /var/etc/passwall/TCP.log
+```
